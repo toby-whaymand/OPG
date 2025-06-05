@@ -193,6 +193,6 @@ while True:
             print(f"{GREEN}Thank you for being secure! {RESET}")
             break
         else:
-            print(f"{GREEN}That's not right. Please enter 'Give me an awesome password' or 'No'. {RESET}")
+            print(f"{GREEN}That's not right. Please enter 'Give me awesome password' or 'No'. {RESET}")
             # Reset the inactivity timer on activity (even on invalid input)
             threading.Timer(LOCK_TIMEOUT_SECONDS, lock_application).start()
