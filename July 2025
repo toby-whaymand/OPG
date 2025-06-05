@@ -1,0 +1,198 @@
+#OPG
+
+from winsound import Beep
+import string
+import random
+import time
+import configparser
+import os
+import threading
+import sys
+
+# ANSI escape codes for green text
+GREEN = '\033[92m'
+RESET = '\033[0m'
+
+# Activation notification sound (Windows only) - Play on startup
+Beep(400, 400)
+Beep(450, 600)
+Beep(400, 400)
+time.sleep(1) # Added a short delay after the sound
+
+
+CONFIG_FILE_NAME = 'config.ini'
+CONFIG_SECTION = 'security'
+PIN_KEY = 'pin'
+# 60 seconds x 4 (4 mins) lock user will need to retype password to regain access to the application
+LOCK_TIMEOUT_SECONDS = 4 * 60 # 4 minutes in seconds
+
+# Get the path to the AppData\Roaming folder
+appdata_path = os.path.join(os.getenv('APPDATA'), 'OPG Application Data')
+if not os.path.exists(appdata_path):
+    os.makedirs(appdata_path)
+CONFIG_FILE_PATH = os.path.join(appdata_path, CONFIG_FILE_NAME)
+
+# Global flag to indicate if the application is locked
+is_locked = False
+access_granted = False
+
+# --- New additions for folder and file creation ---
+def create_novel_collection_folder_and_save_password(reference, password):
+    """
+    Creates a folder named 'Family novels tracking' on the Desktop
+    and saves the password and reference number in a text file inside it.
+    """
+    # Get the path to the user's Desktop folder
+    desktop_path = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop') # Changed to Desktop path
+    folder_name = "Family novels tracking"
+    full_folder_path = os.path.join(desktop_path, folder_name) # Uses desktop_path
+
+    # --- ADDED FOR DEBUGGING ---
+    print(f"\n{GREEN}Attempting to create/check folder at: {full_folder_path}{RESET}")
+    # --- END ADDED FOR DEBUGGING ---
+
+    if not os.path.exists(full_folder_path):
+        try:
+            os.makedirs(full_folder_path)
+            print(f"{GREEN}Created folder: {full_folder_path}{RESET}")
+        except OSError as e:
+            print(f"{GREEN}Error creating folder {full_folder_path}: {e}{RESET}")
+            return # Exit function if folder cannot be created
+    else:
+        print(f"{GREEN}Folder already exists: {full_folder_path}{RESET}")
+
+    file_name = f"{reference}_password.txt"
+    file_path = os.path.join(full_folder_path, file_name)
+
+    try:
+        with open(file_path, 'w') as f:
+            f.write(f"Reference: {reference}\n")
+            f.write(f"Password: {password}\n")
+        print(f"{GREEN}Password for '{reference}' saved to: {file_path}{RESET}")
+    except IOError as e:
+        print(f"{GREEN}Error saving password to file '{file_path}': {e}{RESET}")
+# --- End of new additions ---
+
+def get_stored_pin():
+    """Reads the stored PIN from the configuration file in the AppData folder."""
+    config = configparser.ConfigParser()
+    config.read(CONFIG_FILE_PATH)
+    if config.has_section(CONFIG_SECTION) and config.has_option(CONFIG_SECTION, PIN_KEY):
+        return config[CONFIG_SECTION][PIN_KEY]
+    return None
+
+def save_pin(pin):
+    """Saves the PIN to the configuration file in the AppData folder."""
+    config = configparser.ConfigParser()
+    if not config.has_section(CONFIG_SECTION):
+        config.add_section(CONFIG_SECTION)
+    config[CONFIG_SECTION][PIN_KEY] = pin
+    with open(CONFIG_FILE_PATH, 'w') as configfile:
+        config.write(configfile)
+
+def set_initial_pin():
+    """Prompts the user to set an initial PIN and saves it in the AppData folder."""
+    while True:
+        new_pin = input(f"{GREEN}Welcome to your Offline Password Generator Application. Please enter your desired 4-digit PIN: {RESET}")
+        if len(new_pin) == 4 and new_pin.isdigit():
+            confirm_pin = input(f"{GREEN}Please confirm your PIN: {RESET}")
+            if new_pin == confirm_pin:
+                save_pin(new_pin)
+                print(f"{GREEN}PIN set successfully!{RESET}")
+                return new_pin
+            else:
+                print(f"{GREEN}PINs do not match. Please try again.{RESET}")
+        else:
+            print(f"{GREEN}PIN must be a 4-digit number. Please try again.{RESET}")
+
+def lock_application():
+    """Sets the global lock flag and informs the user."""
+    global is_locked
+    is_locked = True
+    print(f"{GREEN}\nApplication locked due to inactivity.{RESET}")
+
+def unlock_application():
+    """Prompts the user for the PIN to unlock the application."""
+    global is_locked, access_granted, correct_pin
+    attempts = 5
+    while attempts > 0:
+        pin_input = input(f"{GREEN}Application locked. Please enter your PIN to unlock (You have {attempts} attempts remaining): {RESET}")
+        if pin_input == correct_pin:
+            print(f"{GREEN}Application unlocked.{RESET}")
+            is_locked = False
+            access_granted = True
+            # Restart the inactivity timer
+            threading.Timer(LOCK_TIMEOUT_SECONDS, lock_application).start()
+            return True
+        else:
+            attempts -= 1
+            if attempts > 0:
+                print(f"{GREEN}Incorrect PIN. Please try again.{RESET}")
+            else:
+                print(f"{GREEN}Too many incorrect attempts. Application will now close.{RESET}")
+                sys.exit()
+    return False
+
+def inactivity_timer():
+    """Starts a timer that locks the application after a period of inactivity."""
+    threading.Timer(LOCK_TIMEOUT_SECONDS, lock_application).start()
+
+def generate_password(length):
+    characters = string.ascii_letters + string.digits + string.punctuation
+    password = ''.join(random.choices(characters, k=length))
+    return password
+
+# Initial PIN setup and lock screen
+correct_pin = get_stored_pin()
+if correct_pin is None:
+    correct_pin = set_initial_pin()
+
+while not access_granted:
+    attempts = 5
+    while attempts > 0:
+        pin_input = input(f"{GREEN}Please enter your PIN to gain access. You have {attempts} attempts remaining: {RESET}")
+        if pin_input == correct_pin:
+            print(f"{GREEN}Access granted!{RESET}")
+            access_granted = True
+            # Start the inactivity timer after successful login
+            inactivity_timer()
+            break
+        else:
+            attempts -= 1
+            if attempts > 0:
+                time.sleep(2)
+    else:
+        print(f"{GREEN}\nToo many incorrect attempts. This application needs to be restarted{RESET}")
+        exit()
+
+# Main application loop
+while True:
+    if is_locked:
+        if not unlock_application():
+            continue  # If unlocking fails, the application will have exited
+        else:
+            # Reset the timer after successful unlock
+            threading.Timer(LOCK_TIMEOUT_SECONDS, lock_application).start()
+            continue  # Go to the beginning of the loop after unlocking
+    else:
+        another_one = input(f"{GREEN}Would you like an awesome password? Type: Give me another awesome password or type No): {RESET}").lower()
+
+        if another_one == "give me another awesome password" or another_one == "give me awesome password":
+            reference = input(f"{GREEN}Please enter a reference for this password: {RESET}")
+            length = random.randint(16, 30)
+            password = generate_password(length)
+            print(f"{GREEN}Reference: {reference}{RESET}")
+            print(f"")
+            print(f"{GREEN}Password: {password}{RESET}")
+            print(f"")
+            # Call the new function to create folder and save password
+            create_novel_collection_folder_and_save_password(reference, password)
+            # Reset the inactivity timer on activity
+            threading.Timer(LOCK_TIMEOUT_SECONDS, lock_application).start()
+        elif another_one == "no":
+            print(f"{GREEN}Thank you for being secure! {RESET}")
+            break
+        else:
+            print(f"{GREEN}That's not right. Please enter 'Give me an awesome password' or 'No'. {RESET}")
+            # Reset the inactivity timer on activity (even on invalid input)
+            threading.Timer(LOCK_TIMEOUT_SECONDS, lock_application).start()
