@@ -1,4 +1,6 @@
-#OPG
+#OPG Offline Password Generatoor (Applilcaton) 
+# GPL version 3  
+# Orginally created by Toby Whaymand - My first program
 
 from winsound import Beep
 import string
@@ -18,7 +20,6 @@ Beep(400, 400)
 Beep(450, 600)
 Beep(400, 400)
 time.sleep(1) # Added a short delay after the sound
-
 
 CONFIG_FILE_NAME = 'config.ini'
 CONFIG_SECTION = 'security'
