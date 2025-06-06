@@ -1,6 +1,7 @@
 #OPG Offline Password Generatoor (Applilcaton) 
 # GPL version 3  
-# Orginally created by Toby Whaymand - My first program
+# Written in Python
+# Orginally created by Toby Whaymand - My first program  
 
 from winsound import Beep
 import string
