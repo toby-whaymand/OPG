@@ -1,7 +1,7 @@
-# OPG Offline Password Generatoor (Applilcaton) 
+# OPG Offline Password Generator (Application) 
 # GPL version 3  
 # Written in Python
-# Orginally created by Toby Whaymand - My first program  
+# Originally created by Toby Whaymand - My first program  
 
 from winsound import Beep
 import string
